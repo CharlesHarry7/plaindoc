@@ -1,0 +1,7 @@
+name = "plaindoc"
+compatibility_date = "2026-08-01"
+pages_build_output_dir = "out"
+
+# Set secrets via dashboard / wrangler pages secret:
+# STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, OPENAI_API_KEY
+# PRICE_SINGLE, PRICE_PACK5, PUBLIC_BASE_URL
