@@ -5,36 +5,24 @@ module.exports = async function handler(req, res) {
     res.setHeader('allow', 'POST');
     return sendJson(res, { error: 'Method Not Allowed' }, 405);
   }
-
   let body;
   try {
     body = await readJson(req);
   } catch {
     return sendJson(res, { error: 'Invalid JSON' }, 400);
   }
-
   const text = (body.text || '').trim();
   const kind = body.kind || 'other';
-  if (text.length < 40) {
-    return sendJson(res, { error: '请粘贴更完整的文档（至少约 40 字）' }, 400);
-  }
-  if (text.length > 20000) {
-    return sendJson(res, { error: '文本过长，请截取关键条款后重试' }, 400);
-  }
+  if (text.length < 40) return sendJson(res, { error: '请粘贴更完整的文档（至少约 40 字）' }, 400);
+  if (text.length > 20000) return sendJson(res, { error: '文本过长，请截取关键条款后重试' }, 400);
 
   if (process.env.OPENAI_API_KEY) {
     try {
       const markdown = await llmDecode(process.env.OPENAI_API_KEY, kind, text);
       return sendJson(res, { markdown, demo: false });
-    } catch {
-      // Fall through to the heuristic fallback when the LLM is unavailable.
-    }
+    } catch (e) {}
   }
-
-  return sendJson(res, {
-    markdown: heuristicDecode(kind, text),
-    demo: true,
-  });
+  return sendJson(res, { markdown: heuristicDecode(kind, text), demo: true });
 };
 
 async function llmDecode(apiKey, kind, text) {
@@ -50,18 +38,10 @@ async function llmDecode(apiKey, kind, text) {
 """
 ${text.slice(0, 12000)}
 """`;
-
   const resp = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.2,
-    }),
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], temperature: 0.2 }),
   });
   if (!resp.ok) throw new Error('llm');
   const data = await resp.json();
@@ -77,41 +57,63 @@ function heuristicDecode(kind, text) {
     .map((m) => m[0])
     .filter((v, i, a) => a.indexOf(v) === i)
     .slice(0, 10);
-  const riskHits = [];
-  const rules = [
-    [/违约金|违约责任|赔偿/, '出现违约金/赔偿责任表述，核对计算方式和上限'],
-    [/押金|保证金/, '有押金/保证金条款，确认退还条件与扣款范围'],
-    [/提前.*解除|单方解除|清退/, '关注提前解约/清退条件是否对一方明显不利'],
-    [/自动续|顺延/, '可能自动续租/顺延，留意通知期限'],
-    [/滞纳金|逾期/, '逾期费用条款，核对日费率是否过高'],
-    [/维修|损坏|原状/, '维修与原状返还责任，入住前建议做交割清单'],
-    [/转租|分租/, '转租限制，违者可能被解约'],
-  ];
-  for (const [re, tip] of rules) {
-    if (re.test(text)) riskHits.push(tip);
-  }
-  if (!riskHits.length) riskHits.push('未命中常见风险关键词，仍建议人工核对关键数字与签字页');
+
+  const rent = (text.match(/(?:月租金|租金为|租金[:：]|每月租金)[^。；;\n]{0,24}?((?:¥|￥|人民币)?\s*\d[\d,]*(?:\.\d+)?\s*元)/) || [])[1];
+  const deposit = (text.match(/(?:押金|保证金)[^。；;\n]{0,24}?((?:¥|￥|人民币)?\s*\d[\d,]*(?:\.\d+)?\s*元)/) || [])[1];
+  const lateFee = (text.match(/(?:滞纳金|逾期)[^。；;\n]{0,40}?(\d+(?:\.\d+)?\s*%)/) || [])[1];
+  const partyA = (text.match(/甲方[（(]?[^）)\n]{0,12}[）)]?[：:]\s*([^\n，,。]{1,20})/) || [])[1];
+  const partyB = (text.match(/乙方[（(]?[^）)\n]{0,12}[）)]?[：:]\s*([^\n，,。]{1,20})/) || [])[1];
+
+  const risks = [];
+  const push = (level, tip) => risks.push({ level, tip });
+  if (/违约金|违约责任|赔偿/.test(text)) push('高', '有违约金/赔偿条款——核对计算基数、上限与是否“一个月租金”一口价');
+  if (/押金|保证金/.test(text)) push('中', '押金退还条件与可扣款项要写清，退房时建议交割清单+拍照');
+  if (/提前.*(?:解除|退租)|单方解除|清退/.test(text)) push('高', '提前解约/清退条件可能一边倒，确认通知期与损失计算');
+  if (/自动续|顺延/.test(text)) push('中', '自动续租/顺延：标出反对通知的截止日，避免默续多一年');
+  if (/滞纳金|逾期/.test(text)) push('中', '逾期费用' + (lateFee ? '约 ' + lateFee : '') + '——对照当地惯常水平，过高可协商改');
+  if (/转租|分租/.test(text)) push('中', '转租限制较严，违者常被解约');
+  if (/维修|损坏|原状/.test(text)) push('低', '维修与原状返还责任：入住当天做书面交割');
+  if (kind === 'bill' && /保险|共付|自费/.test(text)) push('中', '账单含保险/自费项——逐项核对是否已付款或可申诉');
+  if (kind === 'offer' && /试用期|竞业|期权|归属/.test(text)) push('高', '试用期/竞业/期权归属是高频坑，单独拉出来问 HR');
+  if (!risks.length) push('低', '未命中常见风险词，仍建议人工核对签字页与全部数字');
 
   const label = { lease: '租房合同', bill: '账单', offer: 'Offer/劳动合同', other: '文档' }[kind] || '文档';
-  const moneyBlock = money.length ? money.map((m) => `- ${m}`).join('\n') : '- （未用规则抽到明确「元」金额，请人工核对）';
-  const dateBlock = dates.length ? dates.map((d) => `- ${d}`).join('\n') : '- （未抽到日期）';
+  const high = risks.filter((r) => r.level === '高').length;
+  const summary =
+    high >= 2
+      ? '这份「' + label + '」至少有 ' + high + ' 处偏高风险点，建议签字前改条款或书面确认。'
+      : high === 1
+        ? '这份「' + label + '」有 1 处偏高风险点，其余先核对金额与日期。'
+        : '这份「' + label + '」未见明显高风险关键词，但仍要核对金额、日期与签字页。';
 
-  return `## 一句话总结
-这是一份「${label}」类文本的**演示解读**（未接 LLM key）。下面用规则抽出了金额/日期与常见风险点，方便你先筛坑。
+  const keyLines = [];
+  if (partyA || partyB) {
+    keyLines.push('- 当事人：' + (partyA ? '甲方 ' + partyA : '') + (partyA && partyB ? ' / ' : '') + (partyB ? '乙方 ' + partyB : ''));
+  }
+  if (rent) keyLines.push('- 月租金（抽取）：' + rent);
+  if (deposit) keyLines.push('- 押金（抽取）：' + deposit);
+  if (lateFee) keyLines.push('- 滞纳金比例（抽取）：' + lateFee);
+  keyLines.push('**金额（规则抽取）**');
+  keyLines.push(money.length ? money.map((m) => '- ' + m).join('\n') : '- （未抽到「元」金额）');
+  keyLines.push('**日期（规则抽取）**');
+  keyLines.push(dates.length ? dates.map((d) => '- ' + d).join('\n') : '- （未抽到日期）');
 
-## 关键条款/费用
-**金额（规则抽取）**
-${moneyBlock}
-
-**日期（规则抽取）**
-${dateBlock}
-
-## 潜在风险
-${riskHits.map((x) => `- ${x}`).join('\n')}
-
-## 建议下一步
-1. 把所有金额、租期起止、违约金单独标黄
-2. 签字前要书面确认：押金退还条件、维修责任、提前解约损失
-3. 接上 OPENAI_API_KEY 后可升级为完整白话解读（本页会自动切换）
-4. 重要决策请咨询专业人士——本工具不构成法律意见`;
+  return [
+    '## 一句话总结',
+    summary,
+    '',
+    '> 演示模式：未接 LLM。下面用规则抽取，够你先筛坑；接上 key 后会升级成完整白话。',
+    '',
+    '## 关键条款/费用',
+    keyLines.join('\n'),
+    '',
+    '## 潜在风险',
+    risks.map((r) => '- 【' + r.level + '】' + r.tip).join('\n'),
+    '',
+    '## 建议下一步',
+    '1. 把金额、租期/账单周期、违约金单独标黄，和对方书面确认',
+    '2. 高风险条款改成「可接受的上限/通知期」再签字',
+    '3. 需要更口语的条款拆解时再付费解锁完整解读',
+    '4. 本工具不构成法律意见；重大决策请咨询专业人士',
+  ].join('\n');
 }
