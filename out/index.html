@@ -4,32 +4,38 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PlainDoc — 合同账单一键读懂</title>
-  <meta name="description" content="粘贴租房合同或账单，一键得到白话解读与行动清单。$9 起。" />
+  <meta name="description" content="粘贴租房合同或账单，一键得到白话解读与行动清单。按次付费 $9 起。" />
   <style>
-    :root { --bg:#0b1020; --card:#141a2e; --accent:#6c8cff; --text:#eef1ff; --muted:#9aa3c7; }
+    :root { --bg:#0b1020; --card:#141a2e; --accent:#6c8cff; --accent2:#8b5cf6; --text:#eef1ff; --muted:#9aa3c7; --ok:#34d399; }
     * { box-sizing: border-box; }
-    body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; background:radial-gradient(1200px 600px at 20% -10%,#1a2550,var(--bg)); color:var(--text); }
-    .wrap { max-width:880px; margin:0 auto; padding:48px 20px 80px; }
-    h1 { font-size: clamp(1.8rem, 4vw, 2.6rem); line-height:1.15; margin:0 0 12px; }
-    p.lead { color:var(--muted); font-size:1.1rem; margin:0 0 28px; }
-    .cta { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:40px; }
-    a.btn, button.btn { appearance:none; border:0; border-radius:12px; padding:12px 18px; font-weight:600; cursor:pointer; text-decoration:none; display:inline-block; }
-    .btn-primary { background:var(--accent); color:#fff; }
+    body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, "PingFang SC", sans-serif; background:radial-gradient(1200px 600px at 20% -10%,#1a2550,var(--bg)); color:var(--text); }
+    .wrap { max-width:920px; margin:0 auto; padding:48px 20px 80px; }
+    .badge { display:inline-block; font-size:.8rem; color:var(--ok); background:rgba(52,211,153,.12); border:1px solid rgba(52,211,153,.35); padding:4px 10px; border-radius:999px; margin-bottom:16px; }
+    h1 { font-size: clamp(1.9rem, 4vw, 2.7rem); line-height:1.15; margin:0 0 12px; letter-spacing:-.02em; }
+    p.lead { color:var(--muted); font-size:1.12rem; margin:0 0 28px; max-width:38em; }
+    .cta { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:36px; }
+    a.btn, button.btn { appearance:none; border:0; border-radius:12px; padding:12px 18px; font-weight:600; cursor:pointer; text-decoration:none; display:inline-block; font-size:1rem; }
+    .btn-primary { background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; }
     .btn-ghost { background:#222a45; color:var(--text); }
     .cards { display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:14px; }
     .card { background:var(--card); border:1px solid #243056; border-radius:16px; padding:18px; }
     .card h3 { margin:0 0 8px; font-size:1.05rem; }
-    .card p { margin:0; color:var(--muted); font-size:.95rem; }
-    .price { font-size:1.4rem; font-weight:700; margin-top:10px; }
+    .card p { margin:0; color:var(--muted); font-size:.95rem; line-height:1.45; }
+    .price { font-size:1.45rem; font-weight:700; margin:10px 0 6px; color:#fff; }
+    .steps { margin-top:40px; display:grid; gap:10px; }
+    .step { display:flex; gap:12px; align-items:flex-start; background:rgba(255,255,255,.03); border:1px solid #243056; border-radius:14px; padding:14px 16px; }
+    .n { width:28px; height:28px; border-radius:8px; background:#222a45; display:grid; place-items:center; font-weight:700; flex:none; }
     footer { margin-top:48px; color:var(--muted); font-size:.85rem; }
+    code { font-size:.85em; background:#222a45; padding:2px 6px; border-radius:6px; }
   </style>
 </head>
 <body>
   <div class="wrap">
+    <div class="badge">按次付费 · 不用订阅 · Demo 也可先读</div>
     <h1>看不懂的合同 / 账单<br/>一键变成白话 + 行动清单</h1>
-    <p class="lead">粘贴租房合同、医疗账单或 offer 条款。PlainDoc 用 AI 标出坑点、费用与下一步该做什么。按次付费，不用订阅。</p>
+    <p class="lead">粘贴租房合同、医疗账单或 offer 条款。PlainDoc 标出金额、日期、坑点与下一步该做什么。接上 LLM 后升级完整解读；未接 key 时也能规则抽数。</p>
     <div class="cta">
-      <a class="btn btn-primary" href="/decode.html">先试用解读</a>
+      <a class="btn btn-primary" href="/decode.html">免费试用解读</a>
       <button class="btn btn-ghost" id="buy9" type="button">买 1 次 · $9</button>
       <button class="btn btn-ghost" id="buy29" type="button">买 5 次 · $29</button>
     </div>
@@ -38,7 +44,12 @@
       <div class="card"><h3>账单拆解</h3><p>哪些能争、哪些该付，列成清单。</p></div>
       <div class="card"><h3>按次收费</h3><p class="price">$9 / $29</p><p>复用现成 Stripe Checkout，毛利高、上线快。</p></div>
     </div>
-    <footer>PlainDoc MVP skeleton · separate from DreamUtopia · Stripe keys via env</footer>
+    <div class="steps">
+      <div class="step"><div class="n">1</div><div><strong>粘贴文本</strong><p class="lead" style="margin:4px 0 0;font-size:.95rem">解码页可一键载入样例合同。</p></div></div>
+      <div class="step"><div class="n">2</div><div><strong>立刻出结构解读</strong><p class="lead" style="margin:4px 0 0;font-size:.95rem">总结 / 费用 / 风险 / 下一步。</p></div></div>
+      <div class="step"><div class="n">3</div><div><strong>需要深度时再付费</strong><p class="lead" style="margin:4px 0 0;font-size:.95rem">Stripe 接好后解锁额度；健康检查：<code>/api/health</code></p></div></div>
+    </div>
+    <footer>PlainDoc · 独立于 DreamUtopia · 不构成法律意见</footer>
   </div>
   <script>
     async function checkout(pack) {

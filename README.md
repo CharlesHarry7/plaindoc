@@ -2,25 +2,30 @@
 
 One-click plain-language decode for high-stakes documents (leases, bills, offer letters).
 
-- Landing + decode UI in `out/`
-- Cloudflare Pages Functions in `functions/api/`
-- Stripe Checkout (one-time $9 / $29) — wire secrets, reuse existing Stripe account
-- Separate from DreamUtopia — do not merge stacks
+## Stack
 
-## Quick start
+- Static UI: `out/`
+- Cloudflare Pages Functions: `functions/api/`
+- Stripe Checkout one-time packs ($9 / $29)
+- Separate from DreamUtopia
 
-1. Set Cloudflare Pages project root to `out/`, functions to `functions/`
-2. Secrets: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `OPENAI_API_KEY` (or any LLM)
-3. Stripe Price IDs in `functions/api/stripe/checkout.js` (`PRICE_SINGLE`, `PRICE_PACK5`)
-4. Deploy → open site → pay → paste text → get decode
+## Endpoints
 
-## Pricing (MVP)
+| Path | Purpose |
+|------|---------|
+| `/` | Landing |
+| `/decode.html` | Paste + decode UI (sample lease button) |
+| `/api/decode` | Heuristic demo or LLM if `OPENAI_API_KEY` |
+| `/api/stripe/checkout` | Stripe Checkout session |
+| `/api/stripe/webhook` | Payment webhook stub |
+| `/api/health` | Binding readiness |
 
-| Pack | Price | Decodes |
-|------|-------|---------|
-| Single | $9 | 1 |
-| Pack5 | $29 | 5 |
+## Secrets (Pages)
 
-## Status
+`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `PRICE_SINGLE`, `PRICE_PACK5`, `PUBLIC_BASE_URL`, optional `OPENAI_API_KEY`
 
-Skeleton for review — LLM + Stripe live keys not committed.
+## Deploy
+
+```bash
+npx wrangler pages deploy out --project-name=plaindoc
+```
