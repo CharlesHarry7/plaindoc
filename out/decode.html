@@ -5,10 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>解读 — PlainDoc</title>
   <style>
-    :root { --bg:#0b1020; --card:#141a2e; --accent:#6c8cff; --text:#eef1ff; --muted:#9aa3c7; }
+    :root { --bg:#0b1020; --card:#141a2e; --accent:#6c8cff; --text:#eef1ff; --muted:#9aa3c7; --ok:#34d399; }
     body { margin:0; font-family: ui-sans-serif, system-ui, "PingFang SC", sans-serif; background:var(--bg); color:var(--text); }
     .wrap { max-width:880px; margin:0 auto; padding:32px 20px 80px; }
     a { color:var(--accent); }
+    h1 { margin:0 0 8px; }
+    .sub { color:var(--muted); margin:0 0 16px; }
     textarea { width:100%; min-height:240px; border-radius:14px; border:1px solid #243056; background:var(--card); color:var(--text); padding:14px; font-size:1rem; line-height:1.45; }
     .row { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; align-items:center; }
     select, button { border-radius:12px; border:0; padding:12px 16px; font-weight:600; font-size:.95rem; }
@@ -17,13 +19,16 @@
     button.secondary { background:#222a45; }
     button:disabled { opacity:.6; cursor:wait; }
     #meta { margin-top:10px; color:var(--muted); font-size:.85rem; min-height:1.2em; }
-    #out { margin-top:16px; background:var(--card); border:1px solid #243056; border-radius:16px; padding:18px; white-space:pre-wrap; color:#c9d2f0; min-height:140px; line-height:1.5; }
+    #out { margin-top:16px; background:var(--card); border:1px solid #243056; border-radius:16px; padding:18px; white-space:pre-wrap; color:#c9d2f0; min-height:140px; line-height:1.55; }
+    .upsell { margin-top:18px; border:1px dashed #3b4a7a; border-radius:14px; padding:14px 16px; color:var(--muted); font-size:.92rem; }
+    .upsell strong { color:var(--ok); }
   </style>
 </head>
 <body>
   <div class="wrap">
     <p><a href="/">← PlainDoc</a></p>
-    <h1>粘贴文档，一键解读</h1>
+    <h1>粘贴文档，先筛坑再签字</h1>
+    <p class="sub">演示模式免费。完整白话解读接上模型后自动升级。</p>
     <div class="row">
       <select id="kind">
         <option value="lease">租房合同</option>
@@ -34,10 +39,11 @@
       <button class="secondary" id="sample" type="button">载入样例合同</button>
       <button class="secondary" id="copy" type="button">复制结果</button>
     </div>
-    <textarea id="doc" placeholder="在此粘贴合同或账单全文（建议去掉身份证号等敏感信息）"></textarea>
+    <textarea id="doc" placeholder="粘贴合同/账单全文。建议先打码身份证号与银行卡号。"></textarea>
     <div class="row"><button id="go" type="button">开始解读</button></div>
     <div id="meta"></div>
-    <div id="out">结果会出现在这里。未接 LLM 时用规则抽取金额/日期 + 风险清单。</div>
+    <div id="out">结果会出现在这里。</div>
+    <div class="upsell">看完演示后还想要「逐条白话 + 可谈判话术」？<strong>解锁 1 次 $9 / 5 次 $29</strong>。<a href="/">回首页购买</a>（密钥接好后可用）。</div>
   </div>
   <script>
     const SAMPLE = `房屋租赁合同（样例）\n甲方（出租人）：张三\n乙方（承租人）：李四\n一、甲方将位于杭州市余杭区良渚街道某某路 88 号 2 幢 501 室的房屋出租给乙方。\n二、租赁期限自 2026年9月1日起至 2027年8月31日止。\n三、月租金为人民币 2800 元，乙方应于每月 5 日前支付；逾期超过 7 日的，甲方可按日收取租金 0.5% 的滞纳金。\n四、乙方应向甲方支付押金 5600 元。合同期满且无违约，甲方在退房后 15 日内无息退还押金；若房屋损坏，甲方可从押金中扣除维修费用。\n五、未经甲方书面同意，乙方不得转租。\n六、乙方提前退租的，应提前 30 日书面通知，并支付一个月租金作为违约金。\n七、租赁期满如双方无异议，合同自动顺延一年。\n（样例文本，仅供产品演示）`;
@@ -47,8 +53,7 @@
       document.getElementById('doc').value = SAMPLE;
     };
     document.getElementById('copy').onclick = async () => {
-      const t = document.getElementById('out').innerText;
-      await navigator.clipboard.writeText(t);
+      await navigator.clipboard.writeText(document.getElementById('out').innerText);
       document.getElementById('meta').textContent = '已复制结果';
     };
     document.getElementById('go').onclick = async () => {
@@ -69,7 +74,7 @@
         });
         const data = await r.json();
         out.textContent = data.markdown || data.error || JSON.stringify(data, null, 2);
-        meta.textContent = data.demo ? '演示模式（规则抽取，未接 LLM）' : (data.error ? '失败' : '完整解读');
+        meta.textContent = data.demo ? '演示模式（规则抽取 + 风险分级）' : (data.error ? '失败' : '完整解读');
       } catch (e) {
         out.textContent = '请求失败：' + e.message;
         meta.textContent = '';
